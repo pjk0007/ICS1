@@ -90,14 +90,15 @@ sfp float2sfp(float input){
 	exp = exp - 127;
 	frac = frac & 0x007fffff;
 	frac = frac >> 14;
+	if(input == 0) return 0;
 	if(exp > 31){
 		return (0x7e00 + sign);
 	}
-	else if(exp < -31){
-		return 0;
-	}
-	else if(exp == -31){
-
+	else if(exp <= -31){
+		frac = frac + 0x00000200;
+		int diff = -31 - exp;
+		diff++;
+		frac = frac >> diff;
 	}
 	sign = sign >> 16;
 	exp = exp + 31;
@@ -113,6 +114,7 @@ float sfp2float(sfp input){
 	int temp;
 	int sign, exp, frac;
 	float output;
+	int cnt = 0;
 
 	if(input == 0){
 		return 0;
@@ -125,10 +127,25 @@ float sfp2float(sfp input){
 	sign = sign << 16;
 	exp = exp & 0x00007e00;
 	exp = exp >> 9;
-	exp = exp - 31 + 127;
-	exp = exp << 23;
+	exp = exp - 31;
 	frac = frac & 0x000001ff;
-	frac = frac << 14;
+
+	if(exp == -31){
+		while(frac < 0x00000200){
+			cnt++;
+			frac = frac << 1;
+		}
+		frac = frac << 14;
+		exp -= cnt;
+		exp += 127;
+		exp = exp << 23;
+	}
+	else{
+		exp += 127;
+		exp = exp << 23;
+		frac = frac << 14;
+	}
+
 
 	temp = sign + exp + frac;
 	memcpy((float*)(&output), (int*)(&temp), 4);
