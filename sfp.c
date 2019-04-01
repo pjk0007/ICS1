@@ -166,8 +166,11 @@ sfp sfp_add(sfp in1, sfp in2){
 	exp[1] = exp[1] >> 9;
 	exp[1] = exp[1] - 31;
 
-	frac[0] = (in1 & 0x01ff) + 0x0200;
-	frac[1] = (in2 & 0x01ff) + 0x0200;
+	frac[0] = (in1 & 0x01ff);
+	frac[1] = (in2 & 0x01ff);
+
+	if(exp[0] > -31) frac[0] += 0x0200;
+	if(exp[1] > -31) frac[1] += 0x0200;
 
 	if(sign[0] != sign[1]){
 		if(exp[0] > exp[1]){
@@ -243,10 +246,56 @@ sfp sfp_add(sfp in1, sfp in2){
 			f >> 1;
 			e += 1;
 		}
-		f = f - 0x0200;
+		if(e > -31) f = f - 0x0200;
 		return (s * 0x8000) + ((e + 31) << 9) + f;
 	}
 }
 
 sfp sfp_mul(sfp in1, sfp in2){
+	int sign[2], exp[2], frac[2];
+	int s, e, f;
+	int diff=0, cnt = 0;
+	sign[0] = in1 / 0x8000;
+	sign[1] = in2 / 0x8000;
+
+	exp[0] = in1 & 0x7e00;
+	exp[0] = exp[0] >> 9;
+	exp[0] = exp[0] - 31;
+	exp[1] = in2 & 0x7e00;
+	exp[1] = exp[1] >> 9;
+	exp[1] = exp[1] - 31;
+
+	frac[0] = (in1 & 0x01ff);
+	frac[1] = (in2 & 0x01ff);
+
+	if(exp[0] > -31) frac[0] += 0x0200;
+	if(exp[1] > -31) frac[1] += 0x0200;
+
+	s = sign[0] ^ sign[1];
+	e = exp[0] + exp[1] + 1;
+	f = frac[0] * frac[1];
+
+	if(f == 0){
+		return 0;
+	}
+	while(f < 0x0200){
+	//	e--;
+		f = f << 1;
+	}
+	while(f >= 0x0400){
+	//	e++;
+		f = f >> 1;
+	}
+	if(e<=-31){
+		diff = -31 - e + 1;
+		f = f >> diff;
+		e += 31;
+		return (s * 0x8000) + (e << 9) + f;
+	}
+	else{
+		f -= 0x0200;
+		e += 31;
+		return (s * 0x8000) + (e << 9) + f;
+	}
+	
 }
