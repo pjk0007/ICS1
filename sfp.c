@@ -183,9 +183,17 @@ sfp sfp_add(sfp in1, sfp in2){
 				cnt++;
 				f << 1;
 			}
-			f = f - 0x0200;
 			e -= cnt;
-			return (s * 0x8000) + ((e + 31) << 9) + f;
+			if (e > -31){
+				f = f - 0x0200;
+				return (s * 0x8000) + ((e + 31) << 9) + f;
+			}
+			else{
+				diff = -31 - e + 1;
+				f >> diff;
+				return (s * 0x8000) + f;
+			}
+
 		}
 		else if(exp[0] < exp[1]){
 			e = exp[1];
@@ -193,13 +201,20 @@ sfp sfp_add(sfp in1, sfp in2){
 			diff = exp[1] - exp[0];
 			frac[0] = frac[0] >> diff;
 			f = frac[1] - frac[0];
-			while(f < 0x0200){
+			while(f < 0x0200 && f != 0){
 				cnt++;
 				f << 1;
 			}
-			f = f - 0x0200;
 			e -= cnt;
-			return (s * 0x8000) + ((e + 31) << 9) + f;
+			if (e > -31){
+				if(f!=0) f = f - 0x0200;
+				return (s * 0x8000) + ((e + 31) << 9) + f;
+			}
+			else{
+				diff = -31 - e + 1;
+				f >> diff;
+				return (s * 0x8000) + f;
+			}
 		}
 		else{
 			if(frac[0] > frac[1]){
@@ -210,9 +225,16 @@ sfp sfp_add(sfp in1, sfp in2){
 					cnt++;
 					f << 1;
 				}
-				f = f - 0x0200;
 				e -= cnt;
-				return (s * 0x8000) + ((e + 31) << 9) + f;
+				if (e > -31){
+					f = f - 0x0200;
+					return (s * 0x8000) + ((e + 31) << 9) + f;
+				}
+				else{
+					diff = -31 - e + 1;
+					f >> diff;
+					return (s * 0x8000) + f;
+				}
 			}
 			else if(frac[0] < frac[1]){
 				e = exp[1];
@@ -222,9 +244,16 @@ sfp sfp_add(sfp in1, sfp in2){
 					cnt++;
 					f << 1;
 				}
-				f = f - 0x0200;
 				e -= cnt;
-				return (s * 0x8000) + ((e + 31) << 9) + f;
+				if (e > -31){
+					f = f - 0x0200;
+					return (s * 0x8000) + ((e + 31) << 9) + f;
+				}
+				else{
+					diff = -31 - e + 1;
+					f >> diff;
+					return (s * 0x8000) + f;
+				}
 			}
 			else return 0;
 		}
@@ -254,7 +283,7 @@ sfp sfp_add(sfp in1, sfp in2){
 sfp sfp_mul(sfp in1, sfp in2){
 	int sign[2], exp[2], frac[2];
 	int s, e, f;
-	int diff=0, cnt = 0;
+	int diff=0, cnt = -9;
 	sign[0] = in1 / 0x8000;
 	sign[1] = in2 / 0x8000;
 
@@ -272,20 +301,32 @@ sfp sfp_mul(sfp in1, sfp in2){
 	if(exp[1] > -31) frac[1] += 0x0200;
 
 	s = sign[0] ^ sign[1];
-	e = exp[0] + exp[1] + 1;
+	e = exp[0] + exp[1];
 	f = frac[0] * frac[1];
 
 	if(f == 0){
 		return 0;
 	}
-	while(f < 0x0200){
-	//	e--;
-		f = f << 1;
+	/*
+	if(f >= 0x00080000){
+		f = f >> 10;
+		e += 1;
 	}
-	while(f >= 0x0400){
-	//	e++;
+	else if (f >= 0x00040000){
+		f = f >> 9;
+
+	}*/
+
+	while(f >= 0x00000400){
+		cnt++;
 		f = f >> 1;
 	}
+	while(f < 0x00000200){
+		cnt--;
+		f = f << 1;
+	}
+	e += cnt;
+
 	if(e<=-31){
 		diff = -31 - e + 1;
 		f = f >> diff;
