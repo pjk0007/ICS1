@@ -3,6 +3,9 @@
 #include <string.h>
 #include <stdio.h>
 
+#define TMAX 0x7fffffff
+#define TMIN 0x80000000
+
 sfp int2sfp(int input){
 	int sign;
 	int cnt = 0;
@@ -35,34 +38,34 @@ sfp int2sfp(int input){
 }
 
 int sfp2int(sfp input){	//need exception case
-	int sign, cnt;
+	int sign, exp;
 	int temp;
 	sfp frac;
 	sign = input / 0x8000;
 
-	cnt = input << 1;
-	cnt = cnt >> 10;
-	cnt = cnt - 31;
+	exp = input << 1;
+	exp = exp >> 10;
+	exp = exp - 31;
 
 	frac = input & 0x01ff;
 
-	if(cnt == 32){
+	if(exp == 32){
 		if(frac == 0){
-			if(sign==0) return 0x7fffffff;
-			else return 0x80000000;
+			if(sign==0) return TMAX;
+			else return TMIN;
 		}
 		else{
-			return 0x80000000;
+			return TMIN;
 		}
 	}
-	else if(cnt < 0){
+	else if(exp < 0){
 		return 0;
 	}
-	else if(cnt == 31){
-		if(sign==0) return 0x7fffffff;
+	else if(exp == 31){
+		if(sign==0) return TMAX;
 		else {
-			printf("asdfasdf");
 			if(frac == 0) return 0x80000000;
+			return TMIN;
 		}
 	}
 
@@ -70,7 +73,7 @@ int sfp2int(sfp input){	//need exception case
 	temp = temp << 21;
 	temp = temp & 0x3fe00000;
 	temp = temp + 0x40000000;
-	temp = temp >> (30 - cnt);
+	temp = temp >> (30 - exp);
 
 	if(sign == 1){
 		temp -= 1;
@@ -80,19 +83,25 @@ int sfp2int(sfp input){	//need exception case
 }
 
 sfp float2sfp(float input){
-	int sign, exp, frac;
+	int sign, exp, frac, temp;
+	sfp s_sign;
 	memcpy((int*)(&sign), (float*)(&input), 4);
 	memcpy((int*)(&exp), (float*)(&input), 4);
 	memcpy((int*)(&frac), (float*)(&input), 4);
+
 	sign = sign & 0x80000000;
+	temp = sign >> 16;
+	memcpy((sfp*)(&s_sign), (int*)(&temp), 2);
+	
 	exp = exp & 0x7f800000;
 	exp = exp >> 23;
 	exp = exp - 127;
 	frac = frac & 0x007fffff;
 	frac = frac >> 14;
+
 	if(input == 0) return 0;
 	if(exp > 31){
-		return (0x7e00 + sign);
+		return (0x7e00 + s_sign);
 	}
 	else if(exp <= -31){
 		frac = frac + 0x00000200;
@@ -104,7 +113,7 @@ sfp float2sfp(float input){
 	exp = exp + 31;
 	exp = exp << 9;
 
-	int temp = sign + exp + frac;
+	temp = sign + exp + frac;
 	sfp sol;
 	memcpy((sfp*)(&sol), (int*)(&temp), 2);
 	return sol;
@@ -135,10 +144,18 @@ float sfp2float(sfp input){
 			cnt++;
 			frac = frac << 1;
 		}
+		frac -= 0x00000200;
 		frac = frac << 14;
 		exp -= cnt;
 		exp += 127;
 		exp = exp << 23;
+	}
+	else if(exp == 32){
+		if(frac == 0){
+			temp = sign + 0x7f800000 + frac;
+			memcpy((float*)(&output), (int*)(&temp), 4);
+			return output;
+		}
 	}
 	else{
 		exp += 127;
@@ -171,8 +188,8 @@ sfp sfp_add(sfp in1, sfp in2){
 	frac[0] = (in1 & 0x01ff);
 	frac[1] = (in2 & 0x01ff);
 
-	if(exp[0] > -31) frac[0] += 0x0200;
-	if(exp[1] > -31) frac[1] += 0x0200;
+	if(exp[0] > -31 && exp[0] < 32) frac[0] += 0x0200;
+	if(exp[1] > -31 && exp[1] < 32) frac[1] += 0x0200;
 
 	if(sign[0] != sign[1]){
 		if(exp[0] > exp[1]){
@@ -191,12 +208,20 @@ sfp sfp_add(sfp in1, sfp in2){
 		if(min != max){
 			e = exp[max];
 			s = sign[max];
-			diff = exp[max] - exp[1];
+			diff = exp[max] - exp[min];
 			frac[min] = frac[min] >> diff;
 			f = frac[max] - frac[min];
-			while(f < 0x0200){
+
+			if(e >= 32){
+				if(frac[max] != 0) return (s*0x8000) + 0x7e00 + frac[max];
+				else{
+					return (s*0x8000) + 0x7e00;
+				}
+			}
+
+			while(f < 0x0200 && f != 0){
 				cnt++;
-				f << 1;
+				f = f << 1;
 			}
 			e -= cnt;
 			if (e > -31){
@@ -205,7 +230,7 @@ sfp sfp_add(sfp in1, sfp in2){
 			}
 			else{
 				diff = -31 - e + 1;
-				f >> diff;
+				f = f >> diff;
 				return (s * 0x8000) + f;
 			}
 		}
@@ -227,9 +252,14 @@ sfp sfp_add(sfp in1, sfp in2){
 				e = exp[max];
 			       	s = sign[max];
 				f = frac[max] - frac[min];
+
+				if(e >= 32){
+					return (s * 0x8000) + 0x7e00 + f;
+				}
+
 				while(f < 0x0200){
 					cnt++;
-					f << 1;
+					f = f << 1;
 				}
 				e -= cnt;
 				if (e > -31){
@@ -238,31 +268,45 @@ sfp sfp_add(sfp in1, sfp in2){
 				}
 				else{
 					diff = -31 - e + 1;
-					f >> diff;
+					f = f >> diff;
 					return (s * 0x8000) + f;
 				}
 			}
-			else return 0;
+			else {
+				if(exp[max] >= 32){
+					return (s * 0x8000) + 0x7e11;
+				}
+				return 0;
+			}
 		}
 	}
 	else {
 		s = sign[0];
-		if(exp[0] > exp[1]){
-			e = exp[0];
-			diff = exp[0] - exp[1];
-			frac[1] = frac[1] >> diff;
+		if(exp[0] >= exp[1]){
+			max = 0;
+			min = 1;
 		}
-		else if(exp[1] >= exp[0]){
-			e = exp[1];
-			diff = exp[1] - exp[0];
-			frac[0] = frac[0] >> diff;
+		else if(exp[0] < exp[1]){
+			max = 1;
+			min = 0;
 		}
-		f = frac[0] + frac[1];
-		if(f >= 0x0400){
-			f >> 1;
+	
+		e = exp[max];
+		diff = exp[max] - exp[min];
+		frac[min] = frac[min] >> diff;
+
+		if(e >= 32){
+			return (s * 0x8000) + 0x7e00 + frac[max];
+		}
+
+		f = frac[max] + frac[min];
+		if (f >= 0x0400){
+			printf("%d\n", e);
+			f = f >> 1;
 			e += 1;
 		}
-		if(e > -31) f = f - 0x0200;
+		if(e >= 32) return (s*0x8000) + 0x7e00;
+		else if(e > -31) f = f - 0x0200;
 		return (s * 0x8000) + ((e + 31) << 9) + f;
 	}
 }
@@ -294,15 +338,6 @@ sfp sfp_mul(sfp in1, sfp in2){
 	if(f == 0){
 		return 0;
 	}
-	/*
-	if(f >= 0x00080000){
-		f = f >> 10;
-		e += 1;
-	}
-	else if (f >= 0x00040000){
-		f = f >> 9;
-
-	}*/
 
 	while(f >= 0x00000400){
 		cnt++;
