@@ -328,15 +328,26 @@ sfp sfp_mul(sfp in1, sfp in2){
 	frac[0] = (in1 & 0x01ff);
 	frac[1] = (in2 & 0x01ff);
 
-	if(exp[0] > -31) frac[0] += 0x0200;
-	if(exp[1] > -31) frac[1] += 0x0200;
+	if(exp[0] > -31 && exp[0] < 32) frac[0] += 0x0200;
+	if(exp[1] > -31 && exp[1] < 32) frac[1] += 0x0200;
 
 	s = sign[0] ^ sign[1];
 	e = exp[0] + exp[1];
 	f = frac[0] * frac[1];
 
-	if(f == 0){
+	if(f == 0 && ((exp[0] == -31 && exp[1] != 32) || (exp[1] == -31 && exp[0] != 32))){
 		return 0;
+	}
+	else if(exp[0] >= 32 || exp[1] >= 32){
+		if(frac[0] == 0 && frac[1] == 0){
+			if(exp[0] > -31 && exp[1] > -31){
+				return s*(0x8000) + 0x7e00;
+			}
+			else return s*(0x8000) + 0X7e11;
+		}
+		else{
+			return s*(0x8000) + 0X7e11;
+		}
 	}
 
 	while(f >= 0x00000400){
