@@ -175,7 +175,7 @@ sfp sfp_add(sfp in1, sfp in2){
 	int diff=0, cnt = 0;
 	int max, min;
 	int even;
-	int GRS;
+	int GRS, X;
 
 	sign[0] = in1 / 0x8000;
 	sign[1] = in2 / 0x8000;
@@ -218,6 +218,8 @@ sfp sfp_add(sfp in1, sfp in2){
 			}
 			else{
 				GRS = (frac[min] >> (diff-2)) % 0x0008;
+				X = (frac[min] && ((0x0001 << (diff - 1)) - 1));
+				if(GRS == 0x0002 && X != 0) GRS == 0x0003;
 			}
 
 			if(GRS >= 0x0006 || GRS == 0x0003) even = 1;
@@ -317,6 +319,8 @@ sfp sfp_add(sfp in1, sfp in2){
 			}
 			else{
 				GRS = (frac[min] >> (diff-2)) %	0x0008;
+				X = (frac[min] && ((0x0001 << (diff - 1)) - 1));
+				if(GRS == 0x0002 && X != 0) GRS == 0x0003;
 			}
 		
 			if(GRS >= 0x0006 || GRS == 0x0003) even = 1;
@@ -346,7 +350,7 @@ sfp sfp_add(sfp in1, sfp in2){
 
 sfp sfp_mul(sfp in1, sfp in2){
 	int sign[2], exp[2], frac[2];
-	int s, e, f, even, temp, GRS;
+	int s, e, f, even, temp, GRS, X;
 	int diff=0, cnt = -9;
 	sign[0] = in1 / 0x8000;
 	sign[1] = in2 / 0x8000;
@@ -402,6 +406,8 @@ sfp sfp_mul(sfp in1, sfp in2){
 		}
 		else{
 			GRS = (temp >> (cnt + 7)) % 0x0008;
+			X = (temp && ((0x0001 << (cnt + 8)) - 1));
+			if(GRS == 0x0002 && X != 0) GRS == 0x0003;
 		}
 
 		if(GRS >= 0x0006 || GRS == 0x0003) even = 1;
