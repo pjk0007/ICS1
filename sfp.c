@@ -146,7 +146,7 @@ float sfp2float(sfp input){
 		}
 		frac -= 0x00000200;
 		frac = frac << 14;
-		exp -= cnt;
+		exp -= (cnt - 1);
 		exp += 127;
 		exp = exp << 23;
 	}
@@ -174,6 +174,8 @@ sfp sfp_add(sfp in1, sfp in2){
 	int s, e, f;
 	int diff=0, cnt = 0;
 	int max, min;
+	int even;
+	int GRS;
 
 	sign[0] = in1 / 0x8000;
 	sign[1] = in2 / 0x8000;
@@ -209,7 +211,21 @@ sfp sfp_add(sfp in1, sfp in2){
 			e = exp[max];
 			s = sign[max];
 			diff = exp[max] - exp[min];
+			
+			//round to even
+			if(diff == 1){
+				GRS = (frac[min] << 1) % 0x0008;
+			}
+			else{
+				GRS = (frac[min] >> (diff-2)) % 0x0008;
+			}
+
+			if(GRS >= 0x0006 || GRS == 0x0003) even = 1;
+			else even = 0;
+			//
+			
 			frac[min] = frac[min] >> diff;
+			frac[min] += even;
 			f = frac[max] - frac[min];
 
 			if(e >= 32){
@@ -293,7 +309,24 @@ sfp sfp_add(sfp in1, sfp in2){
 	
 		e = exp[max];
 		diff = exp[max] - exp[min];
+
+		//round to even
+		if(diff > 0){
+			if(diff == 1){
+				GRS = (frac[min] << 1) % 0x0008;
+			}
+			else{
+				GRS = (frac[min] >> (diff-2)) %	0x0008;
+			}
+		
+			if(GRS >= 0x0006 || GRS == 0x0003) even = 1;
+			else even = 0;
+		}
+		else even = 0;
+		//
+
 		frac[min] = frac[min] >> diff;
+		frac[min] += even;
 
 		if(e >= 32){
 			return (s * 0x8000) + 0x7e00 + frac[max];
@@ -313,7 +346,7 @@ sfp sfp_add(sfp in1, sfp in2){
 
 sfp sfp_mul(sfp in1, sfp in2){
 	int sign[2], exp[2], frac[2];
-	int s, e, f;
+	int s, e, f, even, temp, GRS;
 	int diff=0, cnt = -9;
 	sign[0] = in1 / 0x8000;
 	sign[1] = in2 / 0x8000;
@@ -357,11 +390,26 @@ sfp sfp_mul(sfp in1, sfp in2){
 	else if(exp[1] == 32 && frac[1] != 0){
 		return s*(0x8000) + 0x7e11;
 	}
-
+	
+	temp = f;
 	while(f >= 0x00000400){
 		cnt++;
 		f = f >> 1;
 	}
+	if(cnt > -9){
+		if(cnt == -8){
+			GRS = (temp << 1) % 0x0008;
+		}
+		else{
+			GRS = (temp >> (cnt + 7)) % 0x0008;
+		}
+
+		if(GRS >= 0x0006 || GRS == 0x0003) even = 1;
+		else even = 0;
+	}
+	else even = 0;
+	f += even;
+
 	while(f < 0x00000200){
 		cnt--;
 		f = f << 1;
